@@ -16,7 +16,7 @@ func NewServer(logger *log.Logger) *Server {
 	router := http.NewServeMux()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
+		w.Write([]byte("Привет"))
 	})
 	server := &http.Server{
 		Addr:         ":8080",
@@ -33,7 +33,7 @@ func NewServer(logger *log.Logger) *Server {
 }
 
 func (s *Server) Start() error {
-	s.logger.Println("Запуск сервера на порту 8080")
+	s.logger.Println("Запуск сервпщера на порту 8080")
 	return s.server.ListenAndServe()
 }
 
