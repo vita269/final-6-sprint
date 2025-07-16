@@ -2,19 +2,20 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/Yandex-Practicum/go1fl-sprint6-final/internal/server"
 )
 
 func main() {
-	// Создаем логгер
-	logger := log.New(os.Stdout, "server: ", log.LstdFlags)
 
-	// Создаем и запускаем сервер
+	logger := log.New(os.Stdout, "morse-converter: ", log.LstdFlags)
+
 	srv := server.NewServer(logger)
-	if err := srv.Start(); err != nil && err != http.ErrServerClosed {
-		logger.Fatalf("Ошибка при запуске сервера: %v", err)
+
+	logger.Println("The server is running on http://localhost:8080 and in the file")
+	err := srv.Server.ListenAndServe()
+	if err != nil {
+		logger.Fatalf("Error starting server: %v", err)
 	}
 }

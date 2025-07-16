@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -13,85 +11,65 @@ import (
 	"github.com/Yandex-Practicum/go1fl-sprint6-final/internal/service"
 )
 
-// Корневой хендлер для отображения HTML-формы
-func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Чтение HTML-шаблона
-	tmpl, err := template.ParseFiles("internal/templates/index.html")
-	if err != nil {
-		log.Printf("Ошибка при парсинге шаблона: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
-		return
-	}
-
-	// Выполнение шаблона
-	if err := tmpl.Execute(w, nil); err != nil {
-		log.Printf("Ошибка при выполнении шаблона: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
-	}
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "index.html")
 }
 
-// Хендлер для обработки загрузки файлов
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
 	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Парсинг формы
-	err := r.ParseMultipartForm(32 << 20) // 32 MB limit
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		log.Printf("Ошибка при парсинге формы: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
+		http.Error(w, "Error parsing form", http.StatusInternalServerError)
+		log.Println("ParseMultipartForm error:", err)
 		return
 	}
 
-	// Получение файла из формы
-	file, handler, err := r.FormFile("file")
+	file, header, err := r.FormFile("myFile")
 	if err != nil {
-		log.Printf("Ошибка при получении файла: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
+		http.Error(w, "Failed to get file from form", http.StatusInternalServerError)
+		log.Println("FormFile error:", err)
 		return
 	}
 	defer file.Close()
 
-	// Чтение данных файла
 	data, err := io.ReadAll(file)
 	if err != nil {
-		log.Printf("Ошибка при чтении файла: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
+		http.Error(w, "Error reading file", http.StatusInternalServerError)
+		log.Println("ReadAll error:", err)
 		return
 	}
 
-	// Конвертация данных
-	convertedString, err := service.AutoDetect(string(data))
+	converted, err := service.Convert(string(data))
 	if err != nil {
-		log.Printf("Ошибка при конвертации: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
+		http.Error(w, "Data conversion error", http.StatusInternalServerError)
+		log.Println("Convert error:", err)
 		return
 	}
 
-	// Генерация имени файла
-	timestamp := time.Now().UTC().String()
-	ext := filepath.Ext(handler.Filename)
-	newFilename := fmt.Sprintf("%s%s", timestamp, ext)
-
-	// Запись результата в локальный файл
-	err = os.WriteFile(newFilename, []byte(convertedString), 0644)
+	filename := time.Now().UTC().Format("20060102150405") + filepath.Ext(header.Filename)
+	f, err := os.Create(filename)
 	if err != nil {
-		log.Printf("Ошибка при записи файла: %v", err)
-		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
+		http.Error(w, "Failed to create file", http.StatusInternalServerError)
+		log.Println("Create file error", err)
+		return
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(converted)
+	if err != nil {
+		http.Error(w, "Error writing to file", http.StatusInternalServerError)
+		log.Println("WriteString error:", err)
 		return
 	}
 
-	// Возврат результата
-	w.Write([]byte(convertedString))
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write([]byte(converted))
+	if err != nil {
+		log.Println("Write error:", err)
+	}
 }
